@@ -9,8 +9,8 @@ class SimpleFunction(nn.Module):
     def __init__(self):
         super(SimpleFunction, self).__init__()
         # Initialize parameters a and b as learnable variables
-        self.a = nn.Parameter(torch.tensor(1.0))  # Start with a=1.0
-        self.b = nn.Parameter(torch.tensor(0.0))  # Start with b=0.0
+        self.a = nn.Parameter(torch.tensor(1.0, dtype=torch.float))  # Start with a=1.0
+        self.b = nn.Parameter(torch.tensor(0.0, dtype=torch.float))  # Start with b=0.0
 
     def forward(self, x):
         # Define the function f(x) = a * x + b

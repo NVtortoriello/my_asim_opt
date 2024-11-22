@@ -7,6 +7,7 @@ from transforms import transform_g_to_l, transform_l_to_g
 from utils import unit_vector, rect_normal, point_distance, poly_length
 from utd import r_dyad, torch_r_dyad
 
+
 def generate_batch(tx, rfs, rxs, normal, eps, sigma):
 
     rays = []
@@ -71,8 +72,7 @@ class torch_propagate(nn.module):
         self.f = 3.6e9
         self.wl = self.c / self.f
         self.wv = 2 * np.pi / self.wl
-
-        e0 = 8.8541878188e-12
+        self.e0 = 8.8541878188e-12
 
         self.normal = normal
         
