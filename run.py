@@ -7,7 +7,7 @@ from utils import unit_vector, rect_normal, point_distance, poly_length
 from sim import sim_em_ap, sim_wall, ray_intersection, mirrored_point
 from validate import val_r
 
-from batch import generate_batch
+from batch import train
 
 if __name__ == "__main__":
 
@@ -37,7 +37,4 @@ if __name__ == "__main__":
     else:
         print("Validation completed successfully")
 
-    rays = generate_batch(tx, rfs, rxs, normal, wall.eps, wall.sigma)
-
-    for ray in rays:
-        print(f'delay: {np.round(1e9 *ray[0],2)}ns field: {ray[1]}')
+    train(tx, rfs, rxs, normal, wall.eps, wall.sigma)

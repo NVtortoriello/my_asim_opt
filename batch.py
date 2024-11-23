@@ -2,6 +2,7 @@ import numpy as np
 
 import torch
 import torch.nn as nn
+import torch.optim as optim
 
 from transforms import transform_g_to_l, transform_l_to_g
 from utils import unit_vector, rect_normal, point_distance, poly_length
@@ -10,7 +11,7 @@ from utd import r_dyad, torch_r_dyad
 
 def generate_batch(tx, rfs, rxs, normal, eps, sigma):
 
-    rays = []
+    batch = []
 
     field = np.sqrt(tx.power) * np.array([complex(0,1), complex(0,0)])
 
@@ -18,11 +19,11 @@ def generate_batch(tx, rfs, rxs, normal, eps, sigma):
 
         rf = rfs[idx]
 
-        delay, ifield = propagate(tx, rf, rx, normal, field, eps, sigma)
+        inc, dep, m_r = propagate(tx, rf, rx, normal, field, eps, sigma)
 
-        rays.append((delay, ifield))
+        batch.append((inc, dep, m_r))
 
-    return rays
+    return batch
 
 
 def propagate(tx, rf, rx, normal, field, eps, sigma):
@@ -50,61 +51,49 @@ def propagate(tx, rf, rx, normal, field, eps, sigma):
 
     m_r = r_dyad(inc, dep, normal, er)
 
-    sp_factor = 1 / pst_radius
+    # sp_factor = 1 / pst_radius
 
-    ifield = (wl / 4 / np.pi) * m_r @ ifield * sp_factor
+    # ifield = (wl / 4 / np.pi) * m_r @ ifield * sp_factor
 
-    ifield = transform_g_to_l(ifield, tx.b_az, tx.b_zt, 0, unit_vector(rf, rx.point))
-    ifield *= np.array([complex(0,1), complex(0,0)])
+    # ifield = transform_g_to_l(ifield, tx.b_az, tx.b_zt, 0, unit_vector(rf, rx.point))
+    # ifield *= np.array([complex(0,1), complex(0,0)])
 
-    delay = poly_length([tx.point, rf, rx.point]) / c
+    # delay = poly_length([tx.point, rf, rx.point]) / c
 
-    return delay, ifield
+    return inc, dep, m_r
 
 
-class torch_propagate(nn.module):
+def train(tx, rfs, rxs, normal, eps, sigma):
 
-    def __init__(self, normal):
-        super(torch_propagate, self).__init__()
-        # Initialize parameters a and b as learnable variables
-        
-        self.c = 299792458
-        self.f = 3.6e9
-        self.wl = self.c / self.f
-        self.wv = 2 * np.pi / self.wl
-        self.e0 = 8.8541878188e-12
+    batch = generate_batch(tx, rfs, rxs, normal, eps, sigma)
 
-        self.normal = normal
-        
-        self.conductivity = nn.Parameter(torch.tensor(1.0))
-        self.eps = nn.Parameter(torch.tensor(1.0))
+    incs_np = np.array([x[0] for x in batch])
+    deps_np = np.array([x[1] for x in batch])
+    m_rs_np = np.array([x[2] for x in batch])
 
-        self.r_dyad = torch_r_dyad(self.normal)
-        
-    def forward(self, tx, rf, rx, field):
+    incs = torch.from_numpy(incs_np)
+    deps = torch.from_numpy(deps_np)
+    m_rs = torch.from_numpy(m_rs_np)
 
-        ifield = transform_l_to_g(field, tx.b_az, tx.b_zt, 0, unit_vector(tx.point, rf))
+    model = torch_r_dyad(normal)
+    criterion = nn.MSELoss()  # Mean squared error loss
+    optimizer = optim.Adam(model.parameters(), lr=0.1)  # Stochastic gradient descent
 
-        pre_radius = point_distance(tx.point, rf)
-        delta = point_distance(rf, rx.point)
-        pst_radius = pre_radius + delta
+    # Training loop
+    num_epochs = 1000
+    for epoch in range(num_epochs):
+        # Forward pass
+        predictions = model((incs, deps))
+        loss = criterion(predictions, m_rs)
 
-        ifield *= np.exp(complex(0, -self.wv*pst_radius)) / pst_radius
+        # Backward pass
+        optimizer.zero_grad()  # Zero the gradients
+        loss.backward()  # Compute gradients
+        optimizer.step()  # Update parameters
 
-        inc = unit_vector(tx.point, rf)
-        dep = unit_vector(rf, rx.point)
+        # Print progress every 100 epochs
+        if (epoch + 1) % 100 == 0:
+            print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}, a: {model.a.item():.4f}, b: {model.b.item():.4f}")
 
-        er = torch.complex(self.eps, -self.conductivity / 2 / np.pi / self.e0)
-
-        m_r = self.r_dyad.forward(inc, dep, er)
-
-        sp_factor = 1 / pst_radius
-
-        ifield = (self.wl / 4 / np.pi) * m_r @ ifield * sp_factor
-
-        ifield = transform_g_to_l(ifield, tx.b_az, tx.b_zt, 0, unit_vector(rf, rx.point))
-        ifield *= np.array([complex(0,1), complex(0,0)])
-
-        delay = poly_length([tx.point, rf, rx.point]) / self.c
-
-        return delay, ifield
+    # Final parameters
+    print(f"Learned parameters: a = {model.eps.item()}, b = {model.conductivity.item()}")
