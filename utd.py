@@ -57,9 +57,8 @@ def r_dyad(inc, dep, normal, er):
 
 class torch_r_dyad(nn.Module):
 
-    def __init__(self, normal):
+    def __init__(self):
         super(torch_r_dyad, self).__init__()
-        self.normal = torch.from_numpy(normal)
         self.eps =  nn.Parameter(torch.tensor(1.0, dtype=torch.float))
         self.conductivity =  nn.Parameter(torch.tensor(1.0, dtype=torch.float))
 
@@ -67,6 +66,7 @@ class torch_r_dyad(nn.Module):
 
         inc = x[0]
         dep = x[1]
+        nor = x[2]
 
         # c = 299792458
         f = 3.6e9
@@ -75,13 +75,13 @@ class torch_r_dyad(nn.Module):
 
         e0 = 8.8541878188e-12
 
-        e_pai = torch.cross(inc, torch.cross(self.normal, inc))
+        e_pai = torch.cross(inc, torch.cross(nor, inc))
         e_pai /= torch.linalg.norm(e_pai, 2)
 
-        e_pei = torch.cross(self.normal, e_pai) 
-        e_pei /= torch.dot(self.normal, inc)
+        e_pei = torch.cross(nor, e_pai) 
+        e_pei /= torch.dot(nor, inc)
         
-        e_par = torch.cross(dep, torch.cross(self.normal, dep))
+        e_par = torch.cross(dep, torch.cross(nor, dep))
         e_par /= torch.linalg.norm(e_par,2)
 
         e_per = e_pei
@@ -114,7 +114,7 @@ class torch_r_dyad(nn.Module):
         m_r[1,0] = torch.dot(vec_phi_r, e_par)
         m_r[1,1] = torch.dot(vec_phi_r, e_per)
         
-        alpha = -torch.arccos(torch.dot(self.normal, inc))
+        alpha = -torch.arccos(torch.dot(nor, inc))
 
         r = torch.zeros((2,2), dtype=complex)
 

@@ -71,11 +71,16 @@ def train(tx, rfs, rxs, normal, eps, sigma):
     deps_np = np.array([x[1] for x in batch])
     m_rs_np = np.array([x[2] for x in batch])
 
+    nors_np = np.zeros(incs_np.shape)
+
+    nors_np[..., :] = normal
+
     incs = torch.from_numpy(incs_np)
     deps = torch.from_numpy(deps_np)
     m_rs = torch.from_numpy(m_rs_np)
+    nors = torch.from_numpy(nors_np)
 
-    model = torch_r_dyad(normal)
+    model = torch_r_dyad()
     criterion = nn.MSELoss()  # Mean squared error loss
     optimizer = optim.Adam(model.parameters(), lr=0.1)  # Stochastic gradient descent
 
@@ -83,7 +88,7 @@ def train(tx, rfs, rxs, normal, eps, sigma):
     num_epochs = 1000
     for epoch in range(num_epochs):
         # Forward pass
-        predictions = model((incs, deps))
+        predictions = model((incs, deps, nors))
         loss = criterion(predictions, m_rs)
 
         # Backward pass
