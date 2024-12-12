@@ -63,6 +63,10 @@ def propagate(tx, rf, rx, normal, field, eps, sigma):
     return inc, dep, m_r
 
 
+def complex_mse_loss(output, target):
+    return torch.norm(((output - target)**2).mean(dtype=torch.complex64))
+
+
 def train(tx, rfs, rxs, normal, eps, sigma):
 
     batch = generate_batch(tx, rfs, rxs, normal, eps, sigma)
@@ -81,11 +85,11 @@ def train(tx, rfs, rxs, normal, eps, sigma):
     nors = torch.from_numpy(nors_np)
 
     model = torch_r_dyad()
-    criterion = nn.MSELoss()  # Mean squared error loss
+    criterion = complex_mse_loss  # Mean squared error loss
     optimizer = optim.Adam(model.parameters(), lr=0.1)  # Stochastic gradient descent
 
     # Training loop
-    num_epochs = 1000
+    num_epochs = 200
     for epoch in range(num_epochs):
         # Forward pass
         predictions = model((incs, deps, nors))
@@ -97,8 +101,8 @@ def train(tx, rfs, rxs, normal, eps, sigma):
         optimizer.step()  # Update parameters
 
         # Print progress every 100 epochs
-        if (epoch + 1) % 100 == 0:
-            print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}, a: {model.a.item():.4f}, b: {model.b.item():.4f}")
+        if (epoch + 1) % 20 == 0:
+            print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}, er: {model.eps.item():.4f}, cond: {model.conductivity.item():.4f}")
 
     # Final parameters
-    print(f"Learned parameters: a = {model.eps.item()}, b = {model.conductivity.item()}")
+    print(f"Learned parameters: er = {model.eps.item()}, cond = {model.conductivity.item()}")

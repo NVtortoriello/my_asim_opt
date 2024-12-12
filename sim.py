@@ -3,7 +3,7 @@ from copy import deepcopy
 
 class sim_wall:
 
-    def __init__(self, x1, x3):
+    def __init__(self, x1, x3, eps, sigma):
 
         self.x1 = deepcopy(x1)  # bottom left
         self.x2 = deepcopy(x3)
@@ -13,8 +13,8 @@ class sim_wall:
         self.x2[2] = self.x1[2]
         self.x4[2] = self.x3[2]
 
-        self.eps = 5
-        self.sigma = 0.1
+        self.eps = eps
+        self.sigma = sigma
 
     def __str__(self):
         buffer = f'x1: {self.x1}, x2: {self.x2}, x3: {self.x3}, x4: {self.x4}, er: {self.eps}, sigma: {self.sigma}'

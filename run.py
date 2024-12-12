@@ -11,7 +11,7 @@ from batch import train
 
 if __name__ == "__main__":
 
-    wall = sim_wall(np.array([0,-5,0]), np.array([0,5,10]))
+    wall = sim_wall(np.array([0,-5,0]), np.array([0,5,10]), eps=3, sigma=0.01)
     tx = sim_em_ap(np.array([2, -7, 1.5]), 0, 0, 1)
 
     rxs = []
