@@ -68,7 +68,7 @@ class torch_r_dyad(nn.Module):
         dep = x[1]
         nor = x[2]
 
-        output = torch.zeros((inc.shape[0], 2, 2), dtype=complex)
+        output = torch.zeros((inc.shape[0], 2, 2),dtype=torch.complex64)
 
         # c = 299792458
         f = 3.6e9
@@ -79,13 +79,13 @@ class torch_r_dyad(nn.Module):
 
         for idx in range(inc.shape[0]):
 
-            e_pai = torch.cross(inc[idx], torch.cross(nor[idx], inc[idx]))
+            e_pai = torch.cross(inc[idx], torch.cross(nor[idx], inc[idx],dim=-1),dim=-1)
             e_pai /= torch.linalg.norm(e_pai, 2)
 
-            e_pei = torch.cross(nor[idx], e_pai) 
+            e_pei = torch.cross(nor[idx], e_pai,dim=-1) 
             e_pei /= torch.dot(nor[idx], inc[idx])
             
-            e_par = torch.cross(dep[idx], torch.cross(nor[idx], dep[idx]))
+            e_par = torch.cross(dep[idx], torch.cross(nor[idx], dep[idx],dim=-1),dim=-1)
             e_par /= torch.linalg.norm(e_par,2)
 
             e_per = e_pei
@@ -102,7 +102,7 @@ class torch_r_dyad(nn.Module):
             vec_theta_r = torch.tensor([np.cos(theta_r) * np.cos(phi_r), np.cos(theta_r) * np.sin(phi_r), - np.sin(theta_r)])
             vec_phi_r = torch.tensor([-np.sin(phi_r), np.cos(phi_r),0])
             
-            m_i = torch.zeros((2,2),dtype=complex)
+            m_i = torch.zeros((2,2),dtype=torch.complex64)
 
             # print(f'e_pai e_pad {np.sign(np.dot(e_pai, e_pad))}')
             
@@ -111,7 +111,7 @@ class torch_r_dyad(nn.Module):
             m_i[1,0] = torch.dot(e_pei, vec_theta_i)
             m_i[1,1] = torch.dot(e_pei, vec_phi_i)
 
-            m_r = torch.zeros((2,2),dtype=complex)
+            m_r = torch.zeros((2,2),dtype=torch.complex64)
         
             m_r[0,0] = torch.dot(vec_theta_r, e_par)
             m_r[0,1] = torch.dot(vec_theta_r, e_per)
@@ -120,7 +120,7 @@ class torch_r_dyad(nn.Module):
             
             alpha = -torch.arccos(torch.dot(nor[idx], inc[idx]))
 
-            r = torch.zeros((2,2), dtype=complex)
+            r = torch.zeros((2,2),dtype=torch.complex64)
 
             er = torch.complex(self.eps, - self.conductivity / 2 / torch.pi / f / e0) 
 
