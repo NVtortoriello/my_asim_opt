@@ -1,11 +1,11 @@
 import numpy as np
 
 import torch
-import torch.nn as nn
 import torch.optim as optim
+import time
 
 from transforms import transform_g_to_l, transform_l_to_g
-from utils import unit_vector, rect_normal, point_distance, poly_length
+from utils import unit_vector, point_distance
 from utd import r_dyad, torch_r_dyad
 
 
@@ -88,8 +88,13 @@ def train(tx, rfs, rxs, normal, eps, sigma):
     criterion = complex_mse_loss  # Mean squared error loss
     optimizer = optim.Adam(model.parameters(), lr=0.1)  # Stochastic gradient descent
 
+    print(f"actual parameters: eps = {float(eps)}, sigma = {sigma}")
+
     # Training loop
-    num_epochs = 200
+
+    start = time.time()
+
+    num_epochs = 180
     for epoch in range(num_epochs):
         # Forward pass
         predictions = model((incs, deps, nors))
@@ -102,7 +107,10 @@ def train(tx, rfs, rxs, normal, eps, sigma):
 
         # Print progress every 100 epochs
         if (epoch + 1) % 20 == 0:
-            print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}, er: {model.eps.item():.4f}, cond: {model.conductivity.item():.4f}")
+            print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}, eps: {model.eps.item():.4f}, sigma: {model.conductivity.item():.4f}")
 
+    end = time.time()
     # Final parameters
-    print(f"Learned parameters: er = {model.eps.item()}, cond = {model.conductivity.item()}")
+    print(f"learned parameters: eps = {np.round(model.eps.item(),3)}, sigma = {np.round(model.conductivity.item(),3)}")
+
+    print(f'runtime: {np.round(end-start,3)} sec')

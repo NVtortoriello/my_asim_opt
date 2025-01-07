@@ -79,12 +79,13 @@ class torch_r_dyad(nn.Module):
 
         for idx in range(inc.shape[0]):
 
-            e_pai = torch.cross(inc[idx], torch.cross(nor[idx], inc[idx],dim=-1),dim=-1)
+            e_pai = torch.cross(inc[idx], torch.cross(nor[idx], inc[idx], dim=-1), dim=-1)
             e_pai /= torch.linalg.norm(e_pai, 2)
 
-            e_pei = torch.cross(nor[idx], e_pai,dim=-1) 
+            e_pei = torch.cross(nor[idx], e_pai, dim=-1) 
             e_pei /= torch.dot(nor[idx], inc[idx])
             
+            e_par = torch.cross(dep[idx], torch.cross(nor[idx], dep[idx],dim=-1),dim=-1)
             e_par = torch.cross(dep[idx], torch.cross(nor[idx], dep[idx],dim=-1),dim=-1)
             e_par /= torch.linalg.norm(e_par,2)
 

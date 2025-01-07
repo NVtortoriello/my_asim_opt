@@ -1,9 +1,6 @@
 import numpy as np
-import matplotlib.pyplot as plt
 
-from transforms import transform_g_to_l, transform_l_to_g
-
-from utils import unit_vector, rect_normal, point_distance, poly_length
+from utils import unit_vector, rect_normal
 from sim import sim_em_ap, sim_wall, ray_intersection, mirrored_point
 from validate import val_r
 
@@ -30,11 +27,11 @@ if __name__ == "__main__":
 
     normal = rect_normal(wall)
 
-    try:
-        val_r(tx, rxs, rfs, normal)
-    except ValueError:
-        print("Something went wrong")
-    else:
-        print("Validation completed successfully")
+    # try:
+    #     val_r(tx, rxs, rfs, normal)
+    # except ValueError:
+    #     print("Something went wrong")
+    # else:
+    #     print("Validation completed successfully")
 
     train(tx, rfs, rxs, normal, wall.eps, wall.sigma)
