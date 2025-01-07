@@ -105,8 +105,6 @@ class torch_r_dyad(nn.Module):
             
             m_i = torch.zeros((2,2),dtype=torch.complex64)
 
-            # print(f'e_pai e_pad {np.sign(np.dot(e_pai, e_pad))}')
-            
             m_i[0,0] = torch.dot(e_pai, vec_theta_i)
             m_i[0,1] = torch.dot(e_pai, vec_phi_i)
             m_i[1,0] = torch.dot(e_pei, vec_theta_i)

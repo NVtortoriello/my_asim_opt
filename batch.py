@@ -4,7 +4,7 @@ import torch
 import torch.optim as optim
 import time
 
-from transforms import transform_g_to_l, transform_l_to_g
+from transforms import transform_l_to_g
 from utils import unit_vector, point_distance
 from utd import r_dyad, torch_r_dyad
 

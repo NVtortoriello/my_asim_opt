@@ -38,12 +38,10 @@ def s_to_c(theta, phi):
 
 def rect_normal(rect):
 
-    # Define two edges of the rectangle
     edge1 = rect.x2 - rect.x1
     edge2 = rect.x3 - rect.x1
     
-    # Compute the normal of the rectangle's plane
     normal = np.cross(edge1, edge2)
-    normal = normal / np.linalg.norm(normal)  # Normalize the normal
+    normal = normal / np.linalg.norm(normal)
 
     return normal

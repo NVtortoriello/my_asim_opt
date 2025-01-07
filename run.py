@@ -2,7 +2,7 @@ import numpy as np
 
 from utils import unit_vector, rect_normal
 from sim import sim_em_ap, sim_wall, ray_intersection, mirrored_point
-from validate import val_r
+# from validate import val_r
 
 from batch import train
 
