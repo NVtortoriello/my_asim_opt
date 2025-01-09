@@ -10,6 +10,7 @@ def unit_vector(point1, point2):
 
 
 def poly_length(points):
+    #measure length of a side of a square
 
     length = 0
 
@@ -20,6 +21,7 @@ def poly_length(points):
 
 
 def s_to_c(theta, phi):
+    #spherical to cartesian vector conversion
 
     r = np.zeros((3,3))
 
@@ -37,10 +39,10 @@ def s_to_c(theta, phi):
 
 
 def rect_normal(rect):
-
+    #Define edges of a rect
     edge1 = rect.x2 - rect.x1
     edge2 = rect.x3 - rect.x1
-    
+    #Define and normalize normal to the rectangle
     normal = np.cross(edge1, edge2)
     normal = normal / np.linalg.norm(normal)
 

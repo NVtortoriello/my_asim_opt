@@ -5,24 +5,35 @@ import torch.nn as nn
 
 
 def r_dyad(inc, dep, normal, er):
+    #INPUT = CARTESIAN global coordinates
+    #OUTPUT = conversion matrix   generic incident electric field ---> TM TE of incident ---> TM TE reflected ---> generic reflected electric field
     
-    e_pai = np.cross(inc, np.cross(normal, inc))
+    # INCIDENT part
+    # TM polarization
+    # H_TM = np.cross(normal, inc)
+    e_pai = np.cross(inc, np.cross(normal, inc))        #E_parallel to the incidence plane
     e_pai /= np.linalg.norm(e_pai,2)
-    
-    e_pei = np.cross(normal, e_pai) 
+    # TE polarization
+    e_pei = np.cross(normal, e_pai)                     #E_perpendicular
     e_pei /= np.dot(normal, inc)
     
+    # REFLECTED part
+    # TM
     e_par = np.cross(dep, np.cross(normal, dep))
     e_par /= np.linalg.norm(e_par,2)
 
+    #reflected TE = identical
     e_per = e_pei
 
+    #Inc spherical coordinates
     theta_i = np.arccos(inc[2])
     phi_i = np.arctan2(inc[1], inc[0])
-    
+
+    #Vectorial expression cartesian-->spherical global
     vec_theta_i = np.array([np.cos(theta_i) * np.cos(phi_i), np.cos(theta_i) * np.sin(phi_i), - np.sin(theta_i)])
     vec_phi_i = np.array([-np.sin(phi_i), np.cos(phi_i),0])
     
+    #Reflected spherical coordinates
     theta_r = np.arccos(dep[2])
     phi_r = np.arctan2(dep[1], dep[0])
     
@@ -32,28 +43,64 @@ def r_dyad(inc, dep, normal, er):
     m_i = np.zeros((2,2))
 
     # print(f'e_pai e_pad {np.sign(np.dot(e_pai, e_pad))}')
-    
+    #Matrix to convert incident field given by two orthogonal polarizations ALIGNED WITH THETA AND PHI GLOBAL
+    #into TM and TE polarizations
     m_i[0,0] = np.dot(e_pai, vec_theta_i)
     m_i[0,1] = np.dot(e_pai, vec_phi_i)
     m_i[1,0] = np.dot(e_pei, vec_theta_i)
     m_i[1,1] = np.dot(e_pei, vec_phi_i)
 
+    #*m_i trasforma la coppia (theta_hat, phi_hat) inc --->(TE , TM)
+
     m_r = np.zeros((2,2))
-   
+    
+    #Matrix to convert REFLECTED field given by two orthogonal polarizations ALIGNED WITH THETA AND PHI GLOBAL
+    #into TM and TE polarizations    
     m_r[0,0] = np.dot(vec_theta_r, e_par)
     m_r[0,1] = np.dot(vec_theta_r, e_per)
     m_r[1,0] = np.dot(vec_phi_r, e_par)
     m_r[1,1] = np.dot(vec_phi_r, e_per)
-    
+
+    #*m_r trasforma la coppia (TE , TM) ref--->(theta_hat, phi_hat) reflecteed
     alpha = -np.arccos(np.dot(normal, inc))
 
     r = np.zeros((2,2), dtype=complex)
+
+    #FRESNELL EQUATION WHEN n1 IS VACUUM
     r[0,0] = (er * np.cos(alpha) - np.sqrt(er - np.sin(alpha)**2)) / (er * np.cos(alpha) + np.sqrt(er - np.sin(alpha)**2))
     r[1,1] = (np.cos(alpha) - np.sqrt(er - np.sin(alpha)**2)) / (np.cos(alpha) + np.sqrt(er - np.sin(alpha)**2))
 
-    result = m_r @ r @ m_i
+    #transmission
+    trs =  (1 / np.sqrt(er)) * inc + (1 / np.sqrt(er) * np.cos(alpha) - np.sqrt(1 - (1 / er) * np.sin(alpha)**2)) * normal
+    trs =  np.real(trs)
+    trs /= np.linalg.norm(trs) 
 
-    return result
+    t = np.zeros((2,2), dtype=complex)
+    t[1,1] = (2*np.cos(alpha))/(np.cos(alpha) + np.sqrt(er - np.sin(alpha)**2 ))
+    t[0,0] = (2*np.sqrt(er)* np.cos(alpha))/(er* np.cos(alpha) + np.sqrt(er - np.sin(alpha)**2 ))
+
+
+    # TRANSMITTED part-TM
+    e_pat = np.cross(trs, np.cross(normal, trs))
+    e_pat /= np.linalg.norm(e_pat,2)
+    #TE = identical
+    e_pet = e_pei
+     
+    theta_t = np.arccos(trs[2])
+    phi_t= np.arctan2(trs[1], trs[0])
+    
+    vec_theta_t = np.array([np.cos(theta_t) * np.cos(phi_t), np.cos(theta_t) * np.sin(phi_t), - np.sin(theta_t)])
+    vec_phi_t = np.array([-np.sin(phi_t), np.cos(phi_t),0])
+    m_t = np.zeros((2,2))
+    m_t[0,0] = np.dot(vec_theta_t, e_pat)
+    m_t[0,1] = np.dot(vec_theta_t, e_pet)
+    m_t[1,0] = np.dot(vec_phi_t, e_pat)
+    m_t[1,1] = np.dot(vec_phi_t, e_pet)
+
+
+    result = (m_r @ r @ m_i)  - (m_t @ t @ m_i)
+
+    return result , trs
 
 class torch_r_dyad(nn.Module):
 
@@ -67,6 +114,7 @@ class torch_r_dyad(nn.Module):
         inc = x[0]
         dep = x[1]
         nor = x[2]
+        trs = x[3]
 
         output = torch.zeros((inc.shape[0], 2, 2),dtype=torch.complex64)
 
@@ -85,7 +133,6 @@ class torch_r_dyad(nn.Module):
             e_pei = torch.cross(nor[idx], e_pai, dim=-1) 
             e_pei /= torch.dot(nor[idx], inc[idx])
             
-            e_par = torch.cross(dep[idx], torch.cross(nor[idx], dep[idx],dim=-1),dim=-1)
             e_par = torch.cross(dep[idx], torch.cross(nor[idx], dep[idx],dim=-1),dim=-1)
             e_par /= torch.linalg.norm(e_par,2)
 
@@ -126,7 +173,33 @@ class torch_r_dyad(nn.Module):
             r[0,0] = (er * torch.cos(alpha) - torch.sqrt(er - torch.float_power(torch.sin(alpha),2))) / (er * torch.cos(alpha) + torch.sqrt(er - torch.float_power(torch.sin(alpha),2)))
             r[1,1] = (torch.cos(alpha) - torch.sqrt(er - torch.float_power(torch.sin(alpha),2))) / (torch.cos(alpha) + torch.sqrt(er - torch.float_power(torch.sin(alpha),2)))
 
-            result = torch.matmul(m_r, torch.matmul(r, m_i))
+
+            #transmission
+            t = torch.zeros((2,2),dtype=torch.complex64)
+            t[1,1] = (2*torch.cos(alpha))/(torch.cos(alpha) + torch.sqrt(er - torch.sin(alpha)**2 ))
+            t[0,0] = (2*torch.sqrt(er)* torch.cos(alpha))/(er* torch.cos(alpha) + torch.sqrt(er - torch.sin(alpha)**2 ))
+
+
+            # TRANSMITTED part-TM
+            e_pat = torch.cross(trs[idx], torch.cross(nor[idx], trs[idx] ,dim=-1),dim=-1)
+            e_pat /= torch.linalg.norm(e_pat,2)
+            #TE = identical
+            e_pet = e_pei
+            
+            theta_t = torch.arccos(trs[idx][2])
+            phi_t= torch.arctan2(trs[idx][1], trs[idx][0])
+            
+            vec_theta_t = torch.tensor([np.cos(theta_t) * np.cos(phi_t), np.cos(theta_t) * np.sin(phi_t), - np.sin(theta_t)])
+            vec_phi_t = torch.tensor([-np.sin(phi_t), np.cos(phi_t),0])
+            
+            m_t = torch.zeros((2,2),dtype=torch.complex64)
+            m_t[0,0] = torch.dot(vec_theta_t, e_pat)
+            m_t[0,1] = torch.dot(vec_theta_t, e_pet)
+            m_t[1,0] = torch.dot(vec_phi_t, e_pat)
+            m_t[1,1] = torch.dot(vec_phi_t, e_pet)
+
+            result = torch.matmul(m_r, torch.matmul(r, m_i)) 
+            result = result - torch.matmul(m_t, torch.matmul(t, m_i))
 
             output[idx,:,:] = result
 

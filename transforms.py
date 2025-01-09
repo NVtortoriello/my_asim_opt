@@ -45,23 +45,39 @@ def rot(alpha, beta, gamma):
 
 
 def transform_l_to_g(field, az, zt, rt, vec):
+    #vec is the LOCATION where we evaluate the field
+    #field is the 2 components field
 
-    r = rot(az, zt, rt).T # global to local
+    #az: alpha, rotation around z
+    #zt rotation around y
+    #rt rotation round x
+    
+    r = rot(az, zt, rt).T # global to local rotation matrix(transpose is local --> global)
 
+    #LOCAL angles
     theta = np.arccos(vec[2])
     phi = np.arctan2(vec[1], vec[0])
     
+    #buffer : turn [0 0 1] into a row EXPLICITLY
+    #buffer : turn [0 0 1] into a col EXPLICITLY
+    #buffer creates a SCALAR argument to retrieve theta GLOBAL
     buffer = (np.expand_dims(np.array([0,0,1]),0) @ r @ np.expand_dims(vec,-1))[0,0]
     theta_p = np.arccos(buffer)
+
+    #buffer creates a SCALAR argument to retrieve phi GLOBAL
     buffer = (np.expand_dims(np.array([complex(1,0),complex(0,1),complex(0,0)]),0) @ r @ np.expand_dims(vec,-1))[0,0]
     phi_p = np.arctan2(buffer.imag, buffer.real)
 
+    #once you have both angles for both systems
+    #theta hat as vector function of x y z
+    #phi hat as vector function of x y z
     vec_theta = np.array([np.cos(theta) * np.cos(phi), np.cos(theta) * np.sin(phi), - np.sin(theta)])
     vec_phi = np.array([-np.sin(phi), np.cos(phi),0])
 
     vec_theta_p = np.array([np.cos(theta_p) * np.cos(phi_p), np.cos(theta_p) * np.sin(phi_p), - np.sin(theta_p)])
     vec_phi_p = np.array([-np.sin(phi_p), np.cos(phi_p),0])
 
+    #it s a 2x2 because it s a two components field to be rotated
     t = np.zeros((2,2))
 
     t[0,0] = (np.expand_dims(vec_theta,0) @ r.T @ vec_theta_p)[0]
