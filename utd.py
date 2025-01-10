@@ -99,8 +99,8 @@ def r_dyad(inc, dep, normal, er):
 
 
     result = (m_r @ r @ m_i)  - (m_t @ t @ m_i)
-
-    return result , trs
+    # return result , trs
+    return result
 
 class torch_r_dyad(nn.Module):
 
@@ -114,7 +114,7 @@ class torch_r_dyad(nn.Module):
         inc = x[0]
         dep = x[1]
         nor = x[2]
-        trs = x[3]
+        # trs = x[3]
 
         output = torch.zeros((inc.shape[0], 2, 2),dtype=torch.complex64)
 
@@ -173,24 +173,26 @@ class torch_r_dyad(nn.Module):
             r[0,0] = (er * torch.cos(alpha) - torch.sqrt(er - torch.float_power(torch.sin(alpha),2))) / (er * torch.cos(alpha) + torch.sqrt(er - torch.float_power(torch.sin(alpha),2)))
             r[1,1] = (torch.cos(alpha) - torch.sqrt(er - torch.float_power(torch.sin(alpha),2))) / (torch.cos(alpha) + torch.sqrt(er - torch.float_power(torch.sin(alpha),2)))
 
-
             #transmission
+            trs =  (1 / torch.sqrt(er)) * inc[idx] #+ (1 / torch.sqrt(er) * torch.cos(alpha) - torch.sqrt(1 - (1 / er) * torch.sin(alpha)**2)) * nor[idx]
+            trs =  torch.real(trs)
+            trs /= torch.linalg.norm(trs) 
+
             t = torch.zeros((2,2),dtype=torch.complex64)
             t[1,1] = (2*torch.cos(alpha))/(torch.cos(alpha) + torch.sqrt(er - torch.sin(alpha)**2 ))
             t[0,0] = (2*torch.sqrt(er)* torch.cos(alpha))/(er* torch.cos(alpha) + torch.sqrt(er - torch.sin(alpha)**2 ))
 
-
             # TRANSMITTED part-TM
-            e_pat = torch.cross(trs[idx], torch.cross(nor[idx], trs[idx] ,dim=-1),dim=-1)
+            e_pat = torch.cross(trs, torch.cross(nor[idx], trs ,dim=-1),dim=-1)
             e_pat /= torch.linalg.norm(e_pat,2)
             #TE = identical
             e_pet = e_pei
             
-            theta_t = torch.arccos(trs[idx][2])
-            phi_t= torch.arctan2(trs[idx][1], trs[idx][0])
+            theta_t = torch.arccos(trs[2])
+            phi_t= torch.arctan2(trs[1], trs[0])
             
-            vec_theta_t = torch.tensor([np.cos(theta_t) * np.cos(phi_t), np.cos(theta_t) * np.sin(phi_t), - np.sin(theta_t)])
-            vec_phi_t = torch.tensor([-np.sin(phi_t), np.cos(phi_t),0])
+            vec_theta_t = torch.tensor([torch.cos(theta_t) * torch.cos(phi_t), torch.cos(theta_t) * torch.sin(phi_t), - torch.sin(theta_t)])
+            vec_phi_t = torch.tensor([-torch.sin(phi_t), torch.cos(phi_t),0])
             
             m_t = torch.zeros((2,2),dtype=torch.complex64)
             m_t[0,0] = torch.dot(vec_theta_t, e_pat)
