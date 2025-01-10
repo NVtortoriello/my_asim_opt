@@ -19,11 +19,9 @@ def generate_batch(tx, rfs, rxs, normal, eps, sigma):
 
         rf = rfs[idx]
 
-        # inc, dep, trs, m_r = propagate(tx, rf, rx, normal, field, eps, sigma)
-        # batch.append((inc, dep, trs, m_r))
+        inc, dep, trs, m_r = propagate(tx, rf, rx, normal, field, eps, sigma)
 
-        inc, dep, m_r = propagate(tx, rf, rx, normal, field, eps, sigma)
-        batch.append((inc, dep, m_r))
+        batch.append((inc, dep, trs, m_r))
 
     return batch
 
@@ -39,7 +37,7 @@ def propagate(tx, rf, rx, normal, field, eps, sigma):
 
     conductivity = sigma
     er = complex(eps, - conductivity / 2 / np.pi / f / e0)  
-    #beware that the transmitter may be somehow tilted and this rotates the field
+
     ifield = transform_l_to_g(field, tx.b_az, tx.b_zt, 0, unit_vector(tx.point, rf))
 
     pre_radius = point_distance(tx.point, rf)
@@ -51,8 +49,10 @@ def propagate(tx, rf, rx, normal, field, eps, sigma):
     inc = unit_vector(tx.point, rf)
     dep = unit_vector(rf, rx.point)
     
-    # m_r, trs = r_dyad(inc, dep, normal, er)
-    m_r = r_dyad(inc, dep, normal, er)
+
+    m_r, trs = r_dyad(inc, dep, normal, er)
+    #m_r = m_r + t_dyad(inc, dep, normal, er)
+
     # sp_factor = 1 / pst_radius
 
     # ifield = (wl / 4 / np.pi) * m_r @ ifield * sp_factor
@@ -62,8 +62,7 @@ def propagate(tx, rf, rx, normal, field, eps, sigma):
 
     # delay = poly_length([tx.point, rf, rx.point]) / c
 
-    # return inc, dep, trs, m_r
-    return inc, dep, m_r
+    return inc, dep, trs, m_r
 
 
 def complex_mse_loss(output, target):
@@ -76,11 +75,10 @@ def train(tx, rfs, rxs, normal, eps, sigma):
 
     incs_np = np.array([x[0] for x in batch])
     deps_np = np.array([x[1] for x in batch])
-    m_rs_np = np.array([x[2] for x in batch])
+    trss_np = np.array([x[2] for x in batch])
 
-    # trss_np = np.array([x[2] for x in batch])
     #per ogni punto di interesse definisce una matrice 
-    # m_rs_np = np.array([x[3] for x in batch])
+    m_rs_np = np.array([x[3] for x in batch])
 
     nors_np = np.zeros(incs_np.shape)
 
@@ -88,7 +86,7 @@ def train(tx, rfs, rxs, normal, eps, sigma):
     
     incs = torch.from_numpy(incs_np)                #incident  rays batch
     deps = torch.from_numpy(deps_np)                #reflected rays batch
-    # trss = torch.from_numpy(trss_np)                #reflected rays batch
+    trss = torch.from_numpy(trss_np)                #reflected rays batch
 
     m_rs = torch.from_numpy(m_rs_np)                #conversion matrixs batch---TARGET/GND TRUTH
     nors = torch.from_numpy(nors_np)
@@ -106,8 +104,7 @@ def train(tx, rfs, rxs, normal, eps, sigma):
     num_epochs = 180
     for epoch in range(num_epochs):
         # Forward pass: process of passing input data through the network to compute the output.
-        # predictions = model((incs, deps, nors, trss))
-        predictions = model((incs, deps, nors))
+        predictions = model((incs, deps, nors, trss))
         loss = criterion(predictions, m_rs)
 
         # Backward pass

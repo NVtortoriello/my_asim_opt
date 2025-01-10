@@ -17,8 +17,8 @@ if __name__ == "__main__":
     else: 
         x_bot_left =[0,-5,-5]
         x_top_right=[0,5,5]
-        tx_pos=[4.5, -7, -2]
-        rx_pos=np.array([2, 4 , 1])
+        tx_pos=[4.5, -7, 0]
+        rx_pos=np.array([2, 4 , 0])
 
     wall = sim_wall(np.array(x_bot_left), np.array(x_top_right), eps=2, sigma=0.01)
     tx = sim_em_ap(np.array(tx_pos), 0, 0, 1)
@@ -36,7 +36,7 @@ if __name__ == "__main__":
 
     for rx in rxs:
         #1) mirror the receiving point: 
-        # trova il punto immagine
+        # trova il punto che il raggio colpirebbe se non ci fosse il muro
         mr_point = mirrored_point(rx, wall) 
         #2) find exact ray from transmitter
         ray_direction = unit_vector(tx.point, mr_point)
