@@ -62,7 +62,7 @@ def r_dyad(inc, dep, normal, er):
     m_r[1,1] = np.dot(vec_phi_r, e_per)
 
     #*m_r trasforma la coppia (TE , TM) ref--->(theta_hat, phi_hat) reflecteed
-    alpha = -np.arccos(np.dot(normal, inc))
+    alpha = np.pi-np.arccos(np.dot(normal, inc))
 
     r = np.zeros((2,2), dtype=complex)
 
@@ -98,7 +98,7 @@ def r_dyad(inc, dep, normal, er):
     m_t[1,1] = np.dot(vec_phi_t, e_pet)
 
 
-    result = (m_r @ r @ m_i)  - (m_t @ t @ m_i)
+    result = (m_r @ r @ m_i)  + (m_t @ t @ m_i)
 
     return result , trs
 

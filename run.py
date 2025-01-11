@@ -50,7 +50,7 @@ if __name__ == "__main__":
         hit_point = ray_intersection(tx, ray_direction, wall)
 
         #4)upload the rxs rfs only if hit point exists
-        if hit_point != None:
+        if hit_point is not None:
             rfs.append(hit_point)
             rxs.append(rx)
 
