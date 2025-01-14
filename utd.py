@@ -2,7 +2,161 @@ import numpy as np
 
 import torch
 import torch.nn as nn
+from scipy.special import fresnel
 
+def generic_3d_rotation(v, e, theta):
+    # Normalize the axis
+    e = e / np.linalg.norm(e)
+    
+    # Compute components
+    v_cos_theta = v * np.cos(theta)
+    cross = np.cross(e, v) * np.sin(theta)
+    dot = np.dot(e, v) * (1 - np.cos(theta)) * e
+    
+    # Apply Rodrigues' rotation formula
+    v_rotated = v_cos_theta + cross + dot
+    return v_rotated
+
+def W_rotation_matrix(a , b, q , r):
+    W = np.zeros((2,2))
+    W[0,0] = np.dot(a , q)
+    W[0,1] = np.dot(a , r)
+    W[1,0] = np.dot(b , q)
+    W[1,1] = np.dot(b , r)
+    return W
+
+def a(beta , nu , plus):
+    if plus == 1:
+        N = np.round((beta + np.pi)/(2*nu * np.pi))
+    else:
+        N = np.round((beta - np.pi)/(2*nu * np.pi))
+        
+    return (2 * np.cos((2 * nu* np.pi * N - beta)/2)**2)
+
+def diff_coeff(x):
+    S, C = fresnel(np.sqrt(2*x/np.pi))
+    F = np.sqrt(np.pi * x/2 ) * np.exp(1j * x) * (1 + 1j - 2*(S + 1j*C))
+
+    return F
+
+
+#Defined for nu-face
+def gtd_diffraction(inc, dif, edg ,nor_0, n, er):
+    """ 
+    inc: Inc ray direction vector.
+    dif: Dif  ray direction vector.
+    normal_face : ndarray
+        Normal vector to the face of interest.
+    edg: Direction vector of the edge.
+    nu: Index or identifier for the face of interest. 
+    """
+    s_o=1       #Distance origin--->Qd
+    s_p=1       #Distance Qd ----> obs point
+    
+    #proj ray_inc onto the plane orthogonal to inc and edge
+    inc_t = inc - (np.dot(inc, edg)) * edg
+    inc_t /= np.linalg.norm(inc_t)
+
+    #proj ray_dif onto the plane orthogonal to inc and edge
+    dif_t = dif - (np.dot(dif, edg)) * edg
+    dif_t /= np.linalg.norm(dif_t)
+
+    t0 = np.cross(nor_0, edg)                  #tangent to the current face
+    #azimuth computed from the face 0
+    phi_i_t0 = np.pi - (np.pi - np.arccos(- np.dot(inc_t, t0)) ) * np.sign(- np.dot(inc_t, nor_0))
+    phi_d_t0 = np.pi - (np.pi - np.arccos(  np.dot(dif_t, t0)) ) * np.sign(+ np.dot(dif_t, nor_0))
+    
+    #angle with normal
+    theta_r0 = np.arccos(np.abs(np.sin(phi_i_t0)))
+    theta_rn = np.arccos(np.abs(np.sin(n*np.pi - phi_d_t0)))
+
+    #Beta0 angle between dif ray and edge
+    beta0 = np.arccos(np.abs(np.dot(dif, edg)))
+
+    #S IS EXPRESSED AS NUMBER OF LAMBDAS
+    k= 2*np.pi # /lbda      
+    L  = k * (s_o * s_p)/(s_o + s_p) * np.sin(beta0)**2
+
+    #D1 coefficient
+    w = -np.exp(-1j * np.pi/4) / (2*n *np.sqrt(2*np.pi * k) * np.sin(beta0))
+    x1 =  L * a((phi_d_t0 - phi_i_t0) , n , 1)
+    D1 =  w * 1/(np.tan((np.pi + ( phi_d_t0 - phi_i_t0)) / 2/n)) * diff_coeff(x1) 
+    #D2 coefficient
+    x2 =  L * a((phi_d_t0 - phi_i_t0) , n , 0)
+    D2 =  w * 1/(np.tan((np.pi + (-phi_d_t0 + phi_i_t0)) / 2/n)) * diff_coeff(x2) 
+
+    #D3 coefficient
+    x3 =  L * a((phi_d_t0 + phi_i_t0) , n , 1)
+    D3 =  w * 1/(np.tan((np.pi + (+phi_d_t0 + phi_i_t0)) / 2/n) )* diff_coeff(x3) 
+
+    #D4 coefficient
+    x4 =  L * a((phi_d_t0 + phi_i_t0) , n , 0)
+    #da capire perche va a0
+    D4 =  w * 1/(np.tan((np.pi - (phi_d_t0 + phi_i_t0)) / 2/n)) * diff_coeff(x4) 
+
+    # nu dependt = R matrices of coeffs
+    R0 = np.zeros((2,2), dtype=complex)
+    Rn = np.zeros((2,2), dtype=complex)
+
+    #Inc spherical coordinates
+    theta_i = np.arccos(inc[2])
+    phi_i = np.arctan2(inc[1], inc[0])
+    
+    vec_theta_i = np.array([np.cos(theta_i) * np.cos(phi_i), np.cos(theta_i) * np.sin(phi_i), - np.sin(theta_i)])
+    vec_phi_i = np.array([-np.sin(phi_i), np.cos(phi_i),0])
+    
+    #Intermediate orthogonal dyad efore tm te conversion
+    phi_prime_hat = np.cross(inc, edg)
+    phi_prime_hat /= np.linalg.norm(phi_prime_hat,2)
+
+    b0_hat = np.cross(phi_prime_hat, inc)
+    b0_hat /= np.linalg.norm(b0_hat,2)
+
+    phi_hat = - np.cross(dif, edg)
+    phi_hat /= np.linalg.norm(phi_hat,2)
+    
+    #DIFF spherical coordinates
+    theta_r = np.arccos(dif[2])
+    phi_r = np.arctan2(dif[1], dif[0])
+    
+    vec_theta_r = np.array([np.cos(theta_r) * np.cos(phi_r), np.cos(theta_r) * np.sin(phi_r), - np.sin(theta_r)])
+    vec_phi_r = np.array([-np.sin(phi_r), np.cos(phi_r),0])  
+
+    for nu in [0,n]:
+        nor_nu = generic_3d_rotation(nor_0, edg , nu * np.pi)
+
+        e_pei = np.cross(inc, nor_nu)       #E_perpend to the normal and ray plane TE
+        e_pei /= np.linalg.norm(e_pei,2)
+
+        e_pai = np.cross(e_pei, inc)        #E_parallel to the normal and ray plane TM
+        e_pai /= np.linalg.norm(e_pai,2)
+
+        e_per = e_pei                       #TM
+        e_par = np.cross(e_per, inc)        #E_parallel to the normal and ray plane TE
+        e_par /= np.linalg.norm(e_par,2)
+
+        m_i1 = W_rotation_matrix(phi_hat,  b0_hat, vec_theta_i, vec_phi_i)
+        m_i2 = W_rotation_matrix(e_pai,e_pei, phi_hat, b0_hat)
+
+        m_r1 = W_rotation_matrix(phi_hat, b0_hat, e_par, e_per)
+        m_r2 = W_rotation_matrix(vec_theta_r,vec_phi_r, phi_hat, b0_hat)
+
+        r = np.zeros((2,2), dtype=complex)
+
+        if nu == 0:
+            r[0,0] = (er * np.cos(theta_r0) - np.sqrt(er - np.sin(theta_r0)**2)) / (er * np.cos(theta_r0) + np.sqrt(er - np.sin(theta_r0)**2))
+            r[1,1] = (np.cos(theta_r0) - np.sqrt(er - np.sin(theta_r0)**2)) / (np.cos(theta_r0) + np.sqrt(er - np.sin(theta_r0)**2))
+            R0 = m_r2 @ m_r1 @ r @ m_i2 @ m_i1
+
+        else:            
+            r[0,0] = (er * np.cos(theta_rn) - np.sqrt(er - np.sin(theta_rn)**2)) / (er * np.cos(theta_rn) + np.sqrt(er - np.sin(theta_rn)**2))
+            r[1,1] = (np.cos(theta_rn) - np.sqrt(er - np.sin(theta_rn)**2)) / (np.cos(theta_rn) + np.sqrt(er - np.sin(theta_rn)**2))
+            
+            Rn = m_r2 @ m_r1 @ r @ m_i2 @ m_i1
+
+    D = np.zeros((2,2))
+    D = - ((D1 + D2) * np.eye(2,2) - D3 * Rn - D4 * R0) * np.sqrt(1/(s_o*s_p*(s_p + s_o))) * np.exp(-1j * k *(s_p + s_o))
+    return D
 
 def r_dyad(inc, dep, normal, er):
     #INPUT = CARTESIAN global coordinates
@@ -39,28 +193,16 @@ def r_dyad(inc, dep, normal, er):
     
     vec_theta_r = np.array([np.cos(theta_r) * np.cos(phi_r), np.cos(theta_r) * np.sin(phi_r), - np.sin(theta_r)])
     vec_phi_r = np.array([-np.sin(phi_r), np.cos(phi_r),0])
-    
-    m_i = np.zeros((2,2))
 
     # print(f'e_pai e_pad {np.sign(np.dot(e_pai, e_pad))}')
     #Matrix to convert incident field given by two orthogonal polarizations ALIGNED WITH THETA AND PHI GLOBAL
     #into TM and TE polarizations
-    m_i[0,0] = np.dot(e_pai, vec_theta_i)
-    m_i[0,1] = np.dot(e_pai, vec_phi_i)
-    m_i[1,0] = np.dot(e_pei, vec_theta_i)
-    m_i[1,1] = np.dot(e_pei, vec_phi_i)
+    m_i = W_rotation_matrix(e_pai,e_pei, vec_theta_i, vec_phi_i)
 
-    #*m_i trasforma la coppia (theta_hat, phi_hat) inc --->(TE , TM)
-
-    m_r = np.zeros((2,2))
-    
+    #*m_i trasforma la coppia (theta_hat, phi_hat) inc --->(TE , TM)    
     #Matrix to convert REFLECTED field given by two orthogonal polarizations ALIGNED WITH THETA AND PHI GLOBAL
     #into TM and TE polarizations    
-    m_r[0,0] = np.dot(vec_theta_r, e_par)
-    m_r[0,1] = np.dot(vec_theta_r, e_per)
-    m_r[1,0] = np.dot(vec_phi_r, e_par)
-    m_r[1,1] = np.dot(vec_phi_r, e_per)
-
+    m_r = W_rotation_matrix(vec_theta_r,vec_phi_r, e_par, e_per)
     #*m_r trasforma la coppia (TE , TM) ref--->(theta_hat, phi_hat) reflecteed
     alpha = np.pi-np.arccos(np.dot(normal, inc))
 
@@ -91,14 +233,13 @@ def r_dyad(inc, dep, normal, er):
     
     vec_theta_t = np.array([np.cos(theta_t) * np.cos(phi_t), np.cos(theta_t) * np.sin(phi_t), - np.sin(theta_t)])
     vec_phi_t = np.array([-np.sin(phi_t), np.cos(phi_t),0])
-    m_t = np.zeros((2,2))
-    m_t[0,0] = np.dot(vec_theta_t, e_pat)
-    m_t[0,1] = np.dot(vec_theta_t, e_pet)
-    m_t[1,0] = np.dot(vec_phi_t, e_pat)
-    m_t[1,1] = np.dot(vec_phi_t, e_pet)
+
+    m_t = W_rotation_matrix(vec_theta_t,vec_phi_t, e_pat, e_pet)
 
 
     result = (m_r @ r @ m_i)  + (m_t @ t @ m_i)
+    # result = (m_r @ r @ m_i)   
+    # result = (m_t @ t @ m_i)
 
     return result , trs
 
@@ -164,7 +305,7 @@ class torch_r_dyad(nn.Module):
             m_r[1,0] = torch.dot(vec_phi_r, e_par)
             m_r[1,1] = torch.dot(vec_phi_r, e_per)
             
-            alpha = -torch.arccos(torch.dot(nor[idx], inc[idx]))
+            alpha = np.pi-torch.arccos(torch.dot(nor[idx], inc[idx]))
 
             r = torch.zeros((2,2),dtype=torch.complex64)
 
@@ -199,7 +340,7 @@ class torch_r_dyad(nn.Module):
             m_t[1,1] = torch.dot(vec_phi_t, e_pet)
 
             result = torch.matmul(m_r, torch.matmul(r, m_i)) 
-            result = result - torch.matmul(m_t, torch.matmul(t, m_i))
+            result = result + torch.matmul(m_t, torch.matmul(t, m_i))
 
             output[idx,:,:] = result
 

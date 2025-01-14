@@ -5,7 +5,6 @@ from sim import sim_em_ap, sim_wall, ray_intersection, mirrored_point
 from transforms import transform_l_to_g 
 from utils import unit_vector, point_distance
 from utd import r_dyad 
-# from validate import val_r
 
 if __name__ == "__main__":  
 
@@ -70,6 +69,6 @@ if __name__ == "__main__":
         ref_field = m_r @ ifield #* np.exp(complex(0, -wv*pst_radius)) #/ pst_radius /4 /np.pi
 
 
-        print(f'Rx:{rx.point}   Incident Field : {np.linalg.norm(ifield)} , Reflected Field with refraction : {np.linalg.norm(ref_field)}')
+        print(f'Rx:{rx.point}   Incident Field : {np.linalg.norm(ifield)} , Refracted field : {np.linalg.norm(ref_field)}')
  
  
