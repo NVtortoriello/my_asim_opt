@@ -17,7 +17,7 @@ def generic_3d_rotation(v, e, theta):
     v_rotated = v_cos_theta + cross + dot
     return v_rotated
 
-def W_rotation_matrix(a , b, q , r):
+def change_coords(a , b, q , r):
     W = np.zeros((2,2))
     W[0,0] = np.dot(a , q)
     W[0,1] = np.dot(a , r)
@@ -39,9 +39,35 @@ def diff_coeff(x):
 
     return F
 
+def r_nu(inc , nor_nu , phi_hat, phi_hat_prime, b0_hat, b0_hat_prime , theta_r_nu, er):
+    e_pei = np.cross(inc, nor_nu)       #E_perpend to the normal and ray plane TE
+    e_pei /= np.linalg.norm(e_pei,2)
+
+    e_pai = np.cross(e_pei, inc)        #E_parallel to the normal and ray plane TM
+    e_pai /= np.linalg.norm(e_pai,2)
+
+    e_per = e_pei                       #TM
+    e_par = np.cross(e_per, inc)        #E_parallel to the normal and ray plane TE
+    e_par /= np.linalg.norm(e_par,2)
+
+    m_i2 = change_coords(e_pai,e_pei, phi_hat_prime, b0_hat_prime)
+    m_r1 = change_coords(phi_hat, b0_hat, e_par, e_per)
+    # e_test = np.array([1 , 1])
+    # e = (m_r2 @ m_r1 @ m_i2 @ m_i1) @ e_test
+ 
+    R = np.zeros((2,2), dtype=complex)
+
+    R[0,0] = (er * np.cos(theta_r_nu) - np.sqrt(er - np.sin(theta_r_nu)**2)) / (er * np.cos(theta_r_nu) + np.sqrt(er - np.sin(theta_r_nu)**2))
+    R[1,1] = (np.cos(theta_r_nu) - np.sqrt(er - np.sin(theta_r_nu)**2)) / (np.cos(theta_r_nu) + np.sqrt(er - np.sin(theta_r_nu)**2))
+    
+    return  m_r1 @ R @ m_i2 
+
+
+
+
 
 #Defined for nu-face
-def gtd_diffraction(inc, dif, edg ,nor_0, n, er):
+def gtd_diffraction(inc, s_i, dif, s_d, edg ,n0, n, er):
     """ 
     inc: Inc ray direction vector.
     dif: Dif  ray direction vector.
@@ -50,10 +76,8 @@ def gtd_diffraction(inc, dif, edg ,nor_0, n, er):
     edg: Direction vector of the edge.
     nu: Index or identifier for the face of interest. 
     """
-    s_o=1       #Distance origin--->Qd
-    s_p=1       #Distance Qd ----> obs point
     
-    #proj ray_inc onto the plane orthogonal to inc and edge
+    #proj ray_inc onto the plane orthogonal to  edge
     inc_t = inc - (np.dot(inc, edg)) * edg
     inc_t /= np.linalg.norm(inc_t)
 
@@ -61,42 +85,47 @@ def gtd_diffraction(inc, dif, edg ,nor_0, n, er):
     dif_t = dif - (np.dot(dif, edg)) * edg
     dif_t /= np.linalg.norm(dif_t)
 
-    t0 = np.cross(nor_0, edg)                  #tangent to the current face
+    print(f'Incident ray :{inc},   Incident ray projected on plane orthogonal to edge :{inc_t}')
+    print(f'Diffracted ray :{dif}, Diffracted ray projected on plane orthogonal to edge :{dif_t}')
+
+    t0 = np.cross(n0,edg)                 #tangent to the current face
+    print(f't0 : {t0}')
+    print(f'n0 : {n0}')
+    print(f'edg : {edg}')
     #azimuth computed from the face 0
-    phi_i_t0 = np.pi - (np.pi - np.arccos(- np.dot(inc_t, t0)) ) * np.sign(- np.dot(inc_t, nor_0))
-    phi_d_t0 = np.pi - (np.pi - np.arccos(  np.dot(dif_t, t0)) ) * np.sign(+ np.dot(dif_t, nor_0))
-    
-    #angle with normal
-    theta_r0 = np.arccos(np.abs(np.sin(phi_i_t0)))
-    theta_rn = np.arccos(np.abs(np.sin(n*np.pi - phi_d_t0)))
+    phi_i_t0 = np.pi - (np.pi - np.arccos(- np.dot(inc_t, t0)) ) * np.sign(- np.dot(inc_t, n0))
+    phi_d_t0 = np.pi - (np.pi - np.arccos(  np.dot(dif_t, t0)) ) * np.sign(+ np.dot(dif_t, n0))
+
+    print(f'Phi inc angle from t0 : {phi_i_t0*180/np.pi}')
+    print(f'Phi dif angle from t0 : {phi_d_t0*180/np.pi}')
 
     #Beta0 angle between dif ray and edge
     beta0 = np.arccos(np.abs(np.dot(dif, edg)))
 
     #S IS EXPRESSED AS NUMBER OF LAMBDAS
-    k= 2*np.pi # /lbda      
-    L  = k * (s_o * s_p)/(s_o + s_p) * np.sin(beta0)**2
+    k= 2*np.pi # /lbda 
 
-    #D1 coefficient
+    #infinite radius of curvature     
+    L  = k * (s_i * s_d)/(s_i + s_d) * np.sin(beta0)**2
+
+    #D1 coefficient--compensates for E_GO=0 when o-face is shadowed
     w = -np.exp(-1j * np.pi/4) / (2*n *np.sqrt(2*np.pi * k) * np.sin(beta0))
     x1 =  L * a((phi_d_t0 - phi_i_t0) , n , 1)
     D1 =  w * 1/(np.tan((np.pi + ( phi_d_t0 - phi_i_t0)) / 2/n)) * diff_coeff(x1) 
-    #D2 coefficient
+    #D2 coefficient--compensates for E_GO=0 when n-face is shadowed
     x2 =  L * a((phi_d_t0 - phi_i_t0) , n , 0)
     D2 =  w * 1/(np.tan((np.pi + (-phi_d_t0 + phi_i_t0)) / 2/n)) * diff_coeff(x2) 
 
-    #D3 coefficient
+    #D3 coefficient--compensates for E_GO=0 when n-face reflects field
     x3 =  L * a((phi_d_t0 + phi_i_t0) , n , 1)
     D3 =  w * 1/(np.tan((np.pi + (+phi_d_t0 + phi_i_t0)) / 2/n) )* diff_coeff(x3) 
 
-    #D4 coefficient
+    #D4 coefficient--compensates for E_GO=0 when o-face reflects field
     x4 =  L * a((phi_d_t0 + phi_i_t0) , n , 0)
     #da capire perche va a0
     D4 =  w * 1/(np.tan((np.pi - (phi_d_t0 + phi_i_t0)) / 2/n)) * diff_coeff(x4) 
 
-    # nu dependt = R matrices of coeffs
-    R0 = np.zeros((2,2), dtype=complex)
-    Rn = np.zeros((2,2), dtype=complex)
+    print(f'D1 :{D1},D2 :{D2},D3 :{D3},D4 :{D4},')
 
     #Inc spherical coordinates
     theta_i = np.arccos(inc[2])
@@ -109,11 +138,9 @@ def gtd_diffraction(inc, dif, edg ,nor_0, n, er):
     phi_prime_hat = np.cross(inc, edg)
     phi_prime_hat /= np.linalg.norm(phi_prime_hat,2)
 
-    b0_hat = np.cross(phi_prime_hat, inc)
-    b0_hat /= np.linalg.norm(b0_hat,2)
+    b0_prime_hat = np.cross(phi_prime_hat, inc)
 
-    phi_hat = - np.cross(dif, edg)
-    phi_hat /= np.linalg.norm(phi_hat,2)
+    m_i1 = change_coords(phi_prime_hat,  b0_prime_hat, vec_theta_i, vec_phi_i)
     
     #DIFF spherical coordinates
     theta_r = np.arccos(dif[2])
@@ -122,40 +149,69 @@ def gtd_diffraction(inc, dif, edg ,nor_0, n, er):
     vec_theta_r = np.array([np.cos(theta_r) * np.cos(phi_r), np.cos(theta_r) * np.sin(phi_r), - np.sin(theta_r)])
     vec_phi_r = np.array([-np.sin(phi_r), np.cos(phi_r),0])  
 
+    phi_hat = - np.cross(dif, edg)
+    phi_hat /= np.linalg.norm(phi_hat,2)
+    
+    b0_hat = np.cross(phi_hat, dif)
+
+    m_r2 = change_coords(vec_theta_r,vec_phi_r, phi_hat, b0_hat)
+
+    e_test = np.array([1 , 0])
+    e = (m_r2 @ m_i1 ) @ e_test
+
+    # nu dependt = R matrices of coeffs
+    R0 = np.zeros((2,2), dtype=complex)
+    Rn = np.zeros((2,2), dtype=complex)
+
     for nu in [0,n]:
-        nor_nu = generic_3d_rotation(nor_0, edg , nu * np.pi)
 
-        e_pei = np.cross(inc, nor_nu)       #E_perpend to the normal and ray plane TE
-        e_pei /= np.linalg.norm(e_pei,2)
-
-        e_pai = np.cross(e_pei, inc)        #E_parallel to the normal and ray plane TM
-        e_pai /= np.linalg.norm(e_pai,2)
-
-        e_per = e_pei                       #TM
-        e_par = np.cross(e_per, inc)        #E_parallel to the normal and ray plane TE
-        e_par /= np.linalg.norm(e_par,2)
-
-        m_i1 = W_rotation_matrix(phi_hat,  b0_hat, vec_theta_i, vec_phi_i)
-        m_i2 = W_rotation_matrix(e_pai,e_pei, phi_hat, b0_hat)
-
-        m_r1 = W_rotation_matrix(phi_hat, b0_hat, e_par, e_per)
-        m_r2 = W_rotation_matrix(vec_theta_r,vec_phi_r, phi_hat, b0_hat)
-
-        r = np.zeros((2,2), dtype=complex)
-
-        if nu == 0:
-            r[0,0] = (er * np.cos(theta_r0) - np.sqrt(er - np.sin(theta_r0)**2)) / (er * np.cos(theta_r0) + np.sqrt(er - np.sin(theta_r0)**2))
-            r[1,1] = (np.cos(theta_r0) - np.sqrt(er - np.sin(theta_r0)**2)) / (np.cos(theta_r0) + np.sqrt(er - np.sin(theta_r0)**2))
-            R0 = m_r2 @ m_r1 @ r @ m_i2 @ m_i1
-
+        if nu == n:
+            nor_nu = generic_3d_rotation(n0, edg , n*np.pi)
+            theta_rn = np.arccos(np.abs(np.sin(n*np.pi - phi_d_t0)))
+            Rn = m_r2 @ r_nu(inc, nor_nu, phi_hat, phi_prime_hat,b0_hat, b0_prime_hat, theta_rn, er) @ m_i1
         else:            
-            r[0,0] = (er * np.cos(theta_rn) - np.sqrt(er - np.sin(theta_rn)**2)) / (er * np.cos(theta_rn) + np.sqrt(er - np.sin(theta_rn)**2))
-            r[1,1] = (np.cos(theta_rn) - np.sqrt(er - np.sin(theta_rn)**2)) / (np.cos(theta_rn) + np.sqrt(er - np.sin(theta_rn)**2))
+            #angle with normal
+            theta_r0 = np.arccos(np.abs(np.sin(phi_i_t0)))
+            R0 = m_r2 @ r_nu(inc,n0, phi_hat, phi_prime_hat,b0_hat, b0_prime_hat, theta_r0,er) @ m_i1
+
+        # e_pei = np.cross(inc, nor_nu)       #E_perpend to the normal and ray plane TE
+        # e_pei /= np.linalg.norm(e_pei,2)
+
+        # e_pai = np.cross(e_pei, inc)        #E_parallel to the normal and ray plane TM
+        # e_pai /= np.linalg.norm(e_pai,2)
+
+        # e_per = e_pei                       #TM
+        # e_par = np.cross(e_per, inc)        #E_parallel to the normal and ray plane TE
+        # e_par /= np.linalg.norm(e_par,2)
+
+        # m_i2 = change_coords(e_pai,e_pei, phi_prime_hat, b0_prime_hat)
+        # # e_test = np.array([1 , 1])
+        # # e = (m_r2 @ m_r1 @ m_i2 @ m_i1) @ e_test
+
+        # m_r1 = change_coords(phi_hat, b0_hat, e_par, e_per)
+
+        # e_test = np.array([1 , 0])
+        # e = (m_r1 @ m_r2 @ m_i1  @ m_i2 ) @ e_test
+
+        # r = np.zeros((2,2), dtype=complex)
+
+        # if nu == 0:
+        #     #angle with normal
+        #     theta_r0 = np.arccos(np.abs(np.sin(phi_i_t0)))
+        #     r[0,0] = (er * np.cos(theta_r0) - np.sqrt(er - np.sin(theta_r0)**2)) / (er * np.cos(theta_r0) + np.sqrt(er - np.sin(theta_r0)**2))
+        #     r[1,1] = (np.cos(theta_r0) - np.sqrt(er - np.sin(theta_r0)**2)) / (np.cos(theta_r0) + np.sqrt(er - np.sin(theta_r0)**2))
+        #     R0 = m_r2 @ m_r1 @ r @ m_i2 @ m_i1
+
+        # else:            
+        #     theta_rn = np.arccos(np.abs(np.sin(n*np.pi - phi_d_t0)))
+        #     r[0,0] = (er * np.cos(theta_rn) - np.sqrt(er - np.sin(theta_rn)**2)) / (er * np.cos(theta_rn) + np.sqrt(er - np.sin(theta_rn)**2))
+        #     r[1,1] = (np.cos(theta_rn) - np.sqrt(er - np.sin(theta_rn)**2)) / (np.cos(theta_rn) + np.sqrt(er - np.sin(theta_rn)**2))
             
-            Rn = m_r2 @ m_r1 @ r @ m_i2 @ m_i1
+        #     Rn = m_r2 @ m_r1 @ r @ m_i2 @ m_i1
 
     D = np.zeros((2,2))
-    D = - ((D1 + D2) * np.eye(2,2) - D3 * Rn - D4 * R0) * np.sqrt(1/(s_o*s_p*(s_p + s_o))) * np.exp(-1j * k *(s_p + s_o))
+    D = - ((D1 + D2) * np.eye(2,2) - D3 * Rn - D4 * R0) * np.sqrt(1/(s_i*s_d*(s_d + s_i))) * np.exp(-1j * k *(s_d + s_i))
+    
     return D
 
 def r_dyad(inc, dep, normal, er):
@@ -184,6 +240,10 @@ def r_dyad(inc, dep, normal, er):
     phi_i = np.arctan2(inc[1], inc[0])
 
     #Vectorial expression cartesian-->spherical global
+    #We take the polar coordinates expression assuming
+    #1) no field along radial direction
+    #2) we need to express the field in some generic orthogonal dyad(also orthogonal to the inc or dep)
+    #3) 
     vec_theta_i = np.array([np.cos(theta_i) * np.cos(phi_i), np.cos(theta_i) * np.sin(phi_i), - np.sin(theta_i)])
     vec_phi_i = np.array([-np.sin(phi_i), np.cos(phi_i),0])
     
@@ -197,12 +257,12 @@ def r_dyad(inc, dep, normal, er):
     # print(f'e_pai e_pad {np.sign(np.dot(e_pai, e_pad))}')
     #Matrix to convert incident field given by two orthogonal polarizations ALIGNED WITH THETA AND PHI GLOBAL
     #into TM and TE polarizations
-    m_i = W_rotation_matrix(e_pai,e_pei, vec_theta_i, vec_phi_i)
+    m_i = change_coords(e_pai,e_pei, vec_theta_i, vec_phi_i)
 
     #*m_i trasforma la coppia (theta_hat, phi_hat) inc --->(TE , TM)    
     #Matrix to convert REFLECTED field given by two orthogonal polarizations ALIGNED WITH THETA AND PHI GLOBAL
     #into TM and TE polarizations    
-    m_r = W_rotation_matrix(vec_theta_r,vec_phi_r, e_par, e_per)
+    m_r = change_coords(vec_theta_r,vec_phi_r, e_par, e_per)
     #*m_r trasforma la coppia (TE , TM) ref--->(theta_hat, phi_hat) reflecteed
     alpha = np.pi-np.arccos(np.dot(normal, inc))
 
@@ -234,8 +294,10 @@ def r_dyad(inc, dep, normal, er):
     vec_theta_t = np.array([np.cos(theta_t) * np.cos(phi_t), np.cos(theta_t) * np.sin(phi_t), - np.sin(theta_t)])
     vec_phi_t = np.array([-np.sin(phi_t), np.cos(phi_t),0])
 
-    m_t = W_rotation_matrix(vec_theta_t,vec_phi_t, e_pat, e_pet)
+    m_t = change_coords(vec_theta_t,vec_phi_t, e_pat, e_pet)
 
+    # e_test = np.array([1 , 0])
+    # e =  (m_r @ m_i) @ e_test
 
     result = (m_r @ r @ m_i)  + (m_t @ t @ m_i)
     # result = (m_r @ r @ m_i)   

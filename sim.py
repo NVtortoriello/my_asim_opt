@@ -1,28 +1,27 @@
 import numpy as np
 from copy import deepcopy
 
-class sim_wall:
+_
+    
+    
+
+class sim_wedge_2D:
     #create a rect wall given 2 points
 
-    def __init__(self, x1, x3, eps, sigma):
+    def __init__(self, x1, edge, n , er, sigma_in):
 
-        self.x1 = deepcopy(x1)  # bottom left
-        self.x2 = deepcopy(x3)
+        self.orig  = deepcopy(x1)  # bottom left
+        self.edge  = deepcopy(edge)
+        self.edge  /= np.linalg.norm(self.edge)
 
-        self.x3 = deepcopy(x3)
-        self.x4 = deepcopy(x1)
-        
-        self.x2[2] = self.x1[2]         #x2 and x1 same coordinate
-        self.x4[2] = self.x3[2]         #x3 and x4 same coordinate
-
-        self.eps = eps
-        self.sigma = sigma
+        self.n = n
+        self.eps = er
+        self.sigma = sigma_in
 
     def __str__(self):
-        buffer = f'x1: {self.x1}, x2: {self.x2}, x3: {self.x3}, x4: {self.x4}, er: {self.eps}, sigma: {self.sigma}'
+        buffer = f'Origin: {self.orig}, edge: {self.edge}, er: {self.eps}, sigma: {self.sigma}, n: {self.n}'
         return buffer
-
-
+    
 class sim_em_ap:
 
     def __init__(self, x, az, zt, power):
@@ -63,8 +62,8 @@ def mirrored_point(ap, rect):       #reflection
 def ray_intersection(ray_origin, ray_direction, rect):
     #define edges
     edge1 = rect.x2 - rect.x1
-    edge2 = rect.x3 - rect.x1
-    #edge2 = rect.x4 - rect.x1      non cambia molto
+    # edge2 = rect.x3 - rect.x1
+    edge2 = rect.x4 - rect.x1      #non cambia molto
 
     #define normal
     normal = np.cross(edge1, edge2)
